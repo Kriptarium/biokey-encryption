@@ -142,28 +142,36 @@ def calculate_npcr(original, modified):
     changes = sum([1 for a, b in zip(original, modified) if a != b])
     return round(changes / len(original) * 100, 2)
 
-# The rest of the UI remains unchanged
-# Add UI elements to show seed trace and export key info
+# Improved NPCR Test UI
+st.subheader("🧪 NPCR (Number of Pixels Change Rate) Test")
 
-st.subheader("🔑 Key Info & Integrity Tools")
-if st.session_state.last_encrypted:
-    sha_value = compute_sha256(st.session_state.last_encrypted)
-    entropy_value = calculate_entropy(list(st.session_state.last_encrypted))
-    st.write(f"**SHA-256:** `{sha_value}`")
-    st.write(f"**Entropy:** `{entropy_value} bits`")
+st.markdown("""
+Compare how much the encryption output changes when a small mutation is applied to the DNA sequence.
+This simulates cryptographic diffusion performance.
+""")
 
-    if st.button("📄 Export Key Info"):
-        key_info = "System\tSeed\n" + "\n".join([f"{s}\t{v}" for s, v in st.session_state.last_seed_trace])
-        b64_key = base64.b64encode(key_info.encode()).decode()
-        href_key = f'<a href="data:text/plain;base64,{b64_key}" download="bio_key_trace.txt">🔑 Download Key File</a>'
-        st.markdown(href_key, unsafe_allow_html=True)
+col1, col2 = st.columns(2)
 
-# Add NPCR test (user must enter a second DNA string)
-st.subheader("🧪 NPCR Test")
-dna_test_input = st.text_area("Enter slightly modified DNA sequence:", height=100)
-if st.button("Run NPCR Test"):
-    if dna_test_input and st.session_state.dna_input:
-        base_cipher = bio_key_encrypt(st.session_state.dna_input.strip().upper(), "test")
-        new_cipher = bio_key_encrypt(dna_test_input.strip().upper(), "test")
-        npcr = calculate_npcr(base_cipher, new_cipher)
-        st.write(f"**NPCR between original and modified DNA:** `{npcr}%`")
+with col1:
+    original_dna = st.text_area("🔹 Original DNA Sequence", value=st.session_state.dna_input, height=120)
+
+with col2:
+    modified_dna = st.text_area("🔸 Slightly Modified DNA Sequence", height=120)
+
+if st.button("▶️ Run NPCR Test"):
+    if not original_dna or not modified_dna:
+        st.warning("Please enter both original and modified DNA sequences.")
+    else:
+        encrypted_orig = bio_key_encrypt(original_dna.strip().upper(), "testmsg")
+        encrypted_mod = bio_key_encrypt(modified_dna.strip().upper(), "testmsg")
+        npcr = calculate_npcr(encrypted_orig, encrypted_mod)
+
+        st.success(f"📊 NPCR: `{npcr}%` difference between ciphertexts")
+        st.progress(npcr / 100)
+
+        st.markdown("""
+        > **What is NPCR?**  
+        > NPCR (Number of Pixels Change Rate) is a metric adapted from image encryption to DNA-based cryptography.  
+        > It measures the percentage of different bits in two ciphertexts produced by slightly different inputs.  
+        > A high NPCR indicates strong diffusion — a small change in the input leads to large change in the output.
+        """)
