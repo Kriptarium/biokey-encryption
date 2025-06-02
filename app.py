@@ -201,8 +201,7 @@ if st.button("▶️ Run NPCR Test"):
         npcr = calculate_npcr(enc1, enc2)
         st.success(f"📊 NPCR: {npcr}%")
         st.progress(npcr / 100)
-        st.markdown(">
-        **What is NPCR?** Measures how much the encrypted output changes when a small change is made to input. High NPCR = better diffusion and stronger encryption.")
+        st.markdown("**What is NPCR?** Measures how much the encrypted output changes when a small change is made to input. High NPCR = better diffusion and stronger encryption.")
 
 st.subheader("🔓 Decrypt Message")
 hex_input = st.text_area("Enter ciphertext in hex:")
