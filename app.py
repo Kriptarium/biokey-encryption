@@ -1,6 +1,5 @@
 import streamlit as st
 import numpy as np
-from Bio import Entrez
 import matplotlib.pyplot as plt
 import io
 import base64
@@ -10,9 +9,6 @@ import time
 
 st.set_page_config(page_title="BioKey DNA-Guided Encryption", layout="wide")
 st.title("🔐 BioKey: DNA-Parametrized Chaotic Encryption")
-
-# Update: Use valid institutional email to avoid HTTPError
-Entrez.email = "your.name@university.edu"
 
 if 'dna_input' not in st.session_state:
     st.session_state.dna_input = ""
@@ -129,36 +125,24 @@ def calculate_npcr(original, modified):
     return round(changes / len(original) * 100, 2)
 
 st.sidebar.header("📥 DNA Sequence")
-choice = st.sidebar.radio("Input Type", ["Manual", "Fetch from NCBI"])
+choice = st.sidebar.radio("Input Type", ["Manual", "Select Example Dataset"])
 
+example_datasets = {
+    "Example BRCA1": "ATGGATTTTGGGAAGTTGGAAGGTTTTCCTAGGTTTTCCCTGGAATTCGATCTCCTGGTGGTGGTTGTTTTTGGTGGGTG",
+    "Example TP53": "AGCGTGGTGGTACCTTATGGCGGGAGGAGACCGGCGCACAGAGGAAGAGAATCTCCGCAAGAAAGGGCCAGCCTCTGGAAG",
+    "Synthetic Sample": "GCGCGCGCGCATATATATATATGCGCGCGCGCGCGCTATATATATATATCGCGCGCGCGCATATATATATATATATATATA"
+}
+
+dna_seq = ""
 if choice == "Manual":
     dna_seq = st.sidebar.text_area("Enter DNA sequence (A,T,G,C only):", height=150)
-else:
-    gene = st.sidebar.text_input("Gene Name (e.g. BRCA1)")
-    ids = []
-    if st.sidebar.button("Search NCBI"):
-        try:
-            time.sleep(0.34)
-            handle = Entrez.esearch(db="nucleotide", term=gene + "[Gene Name] AND Homo sapiens[Organism]", retmax=5)
-            record = Entrez.read(handle)
-            ids = record['IdList']
-        except Exception as e:
-            st.error(f"NCBI query failed: {str(e)}")
-    if ids:
-        selected_id = st.sidebar.selectbox("Select sequence", ids)
-        if selected_id:
-            try:
-                time.sleep(0.34)
-                fetch = Entrez.efetch(db="nucleotide", id=selected_id, rettype="fasta", retmode="text")
-                fasta = fetch.read()
-                seq_lines = fasta.split('\n')[1:]
-                dna_seq = ''.join(seq_lines)
-                st.sidebar.success("Sequence loaded.")
-                st.session_state.dna_input = dna_seq
-            except Exception as e:
-                st.error(f"NCBI fetch failed: {str(e)}")
+elif choice == "Select Example Dataset":
+    selected_example = st.sidebar.selectbox("Choose an example DNA sequence:", list(example_datasets.keys()))
+    dna_seq = example_datasets[selected_example]
+    st.sidebar.code(dna_seq)
+    st.sidebar.success("Example DNA sequence loaded.")
 
-st.session_state.dna_input = dna_seq if 'dna_seq' in locals() else st.session_state.dna_input
+st.session_state.dna_input = dna_seq if dna_seq.strip() else st.session_state.get('dna_input', example_datasets["Example BRCA1"])
 
 st.subheader("🔐 Encrypt Message")
 plain_text = st.text_input("Enter your message:")
