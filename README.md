@@ -1,10 +1,17 @@
-# 🔐 BioKey: DNA-Driven Chaotic Encryption
+# 🔐 BioKey: DNA-Parametrized Chaotic Encryption
 
-This Streamlit web app implements a novel hybrid encryption method using DNA sequence features and chaotic system switching.
+BioKey is a hybrid encryption model that combines DNA sequence randomness and dynamic chaotic system switching (Lorenz, Rössler, Chen) to enhance cryptographic security.
 
-## Features
-- DNA to numeric encoding
-- Dynamic chaotic system selection (Lorenz, Rössler, Chen)
-- XOR-based message encryption
+## 🚀 Features
+- NCBI integration: Fetch public DNA sequences directly by gene name
+- Segment-based system switching using GC content
+- XOR-based encryption using chaotic maps
+- SHA-256 hash for integrity
+- Entropy and NPCR analysis for security evaluation
+- Exportable key trace log
+- Full Streamlit web interface
 
-## How to Run Locally
+## 📦 Installation
+
+```bash
+pip install -r requirements.txt
