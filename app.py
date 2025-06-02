@@ -6,11 +6,13 @@ import io
 import base64
 import hashlib
 from collections import Counter
+import time
 
 st.set_page_config(page_title="BioKey DNA-Guided Encryption", layout="wide")
 st.title("🔐 BioKey: DNA-Parametrized Chaotic Encryption")
 
-Entrez.email = "example@domain.com"
+# Update: Use valid institutional email to avoid HTTPError
+Entrez.email = "your.name@university.edu"
 
 if 'dna_input' not in st.session_state:
     st.session_state.dna_input = ""
@@ -23,7 +25,7 @@ if 'last_seed_trace' not in st.session_state:
 
 DNA_MAP = {'A': 0.1, 'T': 0.2, 'G': 0.3, 'C': 0.4}
 
-# Mock chaotic systems
+# Mock chaotic systems (dummy randomness for now)
 def lorenz(n, seed):
     np.random.seed(seed)
     return np.random.rand(n)
@@ -133,19 +135,28 @@ if choice == "Manual":
     dna_seq = st.sidebar.text_area("Enter DNA sequence (A,T,G,C only):", height=150)
 else:
     gene = st.sidebar.text_input("Gene Name (e.g. BRCA1)")
+    ids = []
     if st.sidebar.button("Search NCBI"):
-        handle = Entrez.esearch(db="nucleotide", term=gene + "[Gene Name] AND Homo sapiens[Organism]", retmax=5)
-        record = Entrez.read(handle)
-        ids = record['IdList']
-        if ids:
-            selected_id = st.sidebar.selectbox("Select sequence", ids)
-            if selected_id:
+        try:
+            time.sleep(0.34)
+            handle = Entrez.esearch(db="nucleotide", term=gene + "[Gene Name] AND Homo sapiens[Organism]", retmax=5)
+            record = Entrez.read(handle)
+            ids = record['IdList']
+        except Exception as e:
+            st.error(f"NCBI query failed: {str(e)}")
+    if ids:
+        selected_id = st.sidebar.selectbox("Select sequence", ids)
+        if selected_id:
+            try:
+                time.sleep(0.34)
                 fetch = Entrez.efetch(db="nucleotide", id=selected_id, rettype="fasta", retmode="text")
                 fasta = fetch.read()
                 seq_lines = fasta.split('\n')[1:]
                 dna_seq = ''.join(seq_lines)
                 st.sidebar.success("Sequence loaded.")
                 st.session_state.dna_input = dna_seq
+            except Exception as e:
+                st.error(f"NCBI fetch failed: {str(e)}")
 
 st.session_state.dna_input = dna_seq if 'dna_seq' in locals() else st.session_state.dna_input
 
@@ -159,17 +170,14 @@ if st.button("Encrypt"):
     st.success("Message encrypted.")
     st.text(f"SHA256: {compute_sha256(encrypted)}")
     st.text(f"Entropy: {calculate_entropy(list(encrypted))}")
-
     st.download_button("📥 Download Ciphertext (hex)", encrypted.hex(), file_name="ciphertext.txt")
 
-    # Pie Chart for System Usage
     systems = st.session_state.system_usage
     system_counts = Counter(systems)
     fig1, ax1 = plt.subplots()
     ax1.pie(system_counts.values(), labels=system_counts.keys(), autopct='%1.1f%%')
     st.pyplot(fig1)
 
-    # GC Content Plot
     segments = [st.session_state.dna_input[i:i + 100] for i in range(0, len(st.session_state.dna_input), 100)]
     gc_values = [gc_content(seg) for seg in segments if len(seg) == 100]
     fig2, ax2 = plt.subplots()
@@ -193,12 +201,8 @@ if st.button("▶️ Run NPCR Test"):
         npcr = calculate_npcr(enc1, enc2)
         st.success(f"📊 NPCR: {npcr}%")
         st.progress(npcr / 100)
-
-        st.markdown("""
-        > **What is NPCR?**  
-        > Measures how much the encrypted output changes when a small change is made to input.  
-        > High NPCR = better diffusion and stronger encryption.
-        """)
+        st.markdown(">
+        **What is NPCR?** Measures how much the encrypted output changes when a small change is made to input. High NPCR = better diffusion and stronger encryption.")
 
 st.subheader("🔓 Decrypt Message")
 hex_input = st.text_area("Enter ciphertext in hex:")
