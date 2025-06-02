@@ -1,8 +1,27 @@
 import streamlit as st
 import numpy as np
+from Bio import Entrez
+import matplotlib.pyplot as plt
+import io
+import base64
+import hashlib
+from collections import Counter
 
 st.set_page_config(page_title="BioKey DNA-Guided Encryption", layout="centered")
 st.title("🔐 BioKey: DNA-Parametrized Chaotic Encryption")
+
+# Email for NCBI access
+Entrez.email = "example@domain.com"  # Replace with a real email
+
+# Session state init
+if 'dna_input' not in st.session_state:
+    st.session_state.dna_input = ""
+if 'last_encrypted' not in st.session_state:
+    st.session_state.last_encrypted = b''
+if 'system_usage' not in st.session_state:
+    st.session_state.system_usage = []
+if 'last_seed_trace' not in st.session_state:
+    st.session_state.last_seed_trace = []
 
 # DNA to value map
 DNA_MAP = {'A': 0.1, 'T': 0.2, 'G': 0.3, 'C': 0.4}
@@ -42,10 +61,12 @@ def select_chaotic_system(gc):
 def xor_encrypt(data_bytes, key_sequence):
     return bytes([b ^ int(k * 255) for b, k in zip(data_bytes, key_sequence)])
 
-# BioKey encryption
+# BioKey encryption with tracking
 def bio_key_encrypt(dna_seq, plain_text, segment_length=100):
     encrypted = b''
     data_bytes = plain_text.encode('utf-8')
+    st.session_state.system_usage = []
+    st.session_state.last_seed_trace = []
 
     for i in range(0, len(dna_seq), segment_length):
         segment = dna_seq[i:i + segment_length]
@@ -54,8 +75,11 @@ def bio_key_encrypt(dna_seq, plain_text, segment_length=100):
 
         gc = gc_content(segment)
         system = select_chaotic_system(gc)
+        st.session_state.system_usage.append(system)
+
         numeric = dna_to_numeric(segment)
         seed = int(sum(numeric) * 1000) % 10000
+        st.session_state.last_seed_trace.append((system, seed))
 
         if system == 'Lorenz':
             chaotic_seq = lorenz(len(data_bytes), seed)
@@ -69,20 +93,77 @@ def bio_key_encrypt(dna_seq, plain_text, segment_length=100):
 
     return encrypted
 
-# Streamlit interface
-st.subheader("Step 1: Enter DNA Sequence")
-dna_input = st.text_area("Paste your DNA sequence (A, T, G, C only):", height=150)
+# Decryption
+def bio_key_decrypt(dna_seq, encrypted_bytes, segment_length=100):
+    decrypted = b''
+    data_len = len(encrypted_bytes)
+    st.session_state.system_usage = []
+    st.session_state.last_seed_trace = []
 
-st.subheader("Step 2: Enter Message to Encrypt")
-message_input = st.text_input("Enter a short message:")
+    for i in range(0, len(dna_seq), segment_length):
+        segment = dna_seq[i:i + segment_length]
+        if len(segment) < segment_length:
+            break
 
-if st.button("🔐 Encrypt"):
-    if not dna_input or not message_input:
-        st.warning("Please enter both DNA sequence and message.")
-    else:
-        cipher = bio_key_encrypt(dna_input.strip().upper(), message_input)
-        st.success("Encryption Complete!")
-        st.code(cipher.hex(), language='text')
+        gc = gc_content(segment)
+        system = select_chaotic_system(gc)
+        st.session_state.system_usage.append(system)
 
-st.markdown("---")
-st.caption("Developed using the BioKey hybrid encryption model.")
+        numeric = dna_to_numeric(segment)
+        seed = int(sum(numeric) * 1000) % 10000
+        st.session_state.last_seed_trace.append((system, seed))
+
+        if system == 'Lorenz':
+            chaotic_seq = lorenz(data_len, seed)
+        elif system == 'Chen':
+            chaotic_seq = chen(data_len, seed)
+        else:
+            chaotic_seq = rossler(data_len, seed)
+
+        decrypted_segment = xor_encrypt(encrypted_bytes, chaotic_seq)
+        decrypted += decrypted_segment
+
+    return decrypted
+
+# Utility: SHA256 checksum
+def compute_sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
+# Utility: Entropy calculation
+def calculate_entropy(data):
+    prob = [data.count(byte)/len(data) for byte in set(data)]
+    entropy = -sum([p * np.log2(p) for p in prob])
+    return round(entropy, 4)
+
+# Utility: NPCR (for binary data)
+def calculate_npcr(original, modified):
+    if len(original) != len(modified):
+        return 0.0
+    changes = sum([1 for a, b in zip(original, modified) if a != b])
+    return round(changes / len(original) * 100, 2)
+
+# The rest of the UI remains unchanged
+# Add UI elements to show seed trace and export key info
+
+st.subheader("🔑 Key Info & Integrity Tools")
+if st.session_state.last_encrypted:
+    sha_value = compute_sha256(st.session_state.last_encrypted)
+    entropy_value = calculate_entropy(list(st.session_state.last_encrypted))
+    st.write(f"**SHA-256:** `{sha_value}`")
+    st.write(f"**Entropy:** `{entropy_value} bits`")
+
+    if st.button("📄 Export Key Info"):
+        key_info = "System\tSeed\n" + "\n".join([f"{s}\t{v}" for s, v in st.session_state.last_seed_trace])
+        b64_key = base64.b64encode(key_info.encode()).decode()
+        href_key = f'<a href="data:text/plain;base64,{b64_key}" download="bio_key_trace.txt">🔑 Download Key File</a>'
+        st.markdown(href_key, unsafe_allow_html=True)
+
+# Add NPCR test (user must enter a second DNA string)
+st.subheader("🧪 NPCR Test")
+dna_test_input = st.text_area("Enter slightly modified DNA sequence:", height=100)
+if st.button("Run NPCR Test"):
+    if dna_test_input and st.session_state.dna_input:
+        base_cipher = bio_key_encrypt(st.session_state.dna_input.strip().upper(), "test")
+        new_cipher = bio_key_encrypt(dna_test_input.strip().upper(), "test")
+        npcr = calculate_npcr(base_cipher, new_cipher)
+        st.write(f"**NPCR between original and modified DNA:** `{npcr}%`")
